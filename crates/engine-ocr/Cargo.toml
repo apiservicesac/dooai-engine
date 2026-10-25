@@ -1,0 +1,16 @@
+[package]
+name = "engine-ocr"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+engine-core = { version = "0.1.0", path = "../engine-core" }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp", "tiff", "bmp"] }
+ndarray = "0.17.2"
+ort = "2.0.0-rc.15"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_yaml_ng = "0.10.0"
