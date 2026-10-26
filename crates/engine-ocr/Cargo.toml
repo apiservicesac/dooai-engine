@@ -9,9 +9,9 @@ workspace = true
 
 [dependencies]
 engine-core = { version = "0.1.0", path = "../engine-core" }
+engine-onnx = { version = "0.1.0", path = "../engine-onnx" }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp", "tiff", "bmp"] }
 imageproc = { version = "0.27.0", default-features = false }
 ndarray = "0.17.2"
-ort = "2.0.0-rc.15"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_yaml_ng = "0.10.0"

@@ -10,6 +10,8 @@ use serde::Serialize;
 pub enum ApiError {
     Engine(EngineError),
     Worker(String),
+    /// The capability needs a model that is not installed.
+    Unavailable(&'static str),
 }
 
 #[derive(Serialize)]
@@ -22,14 +24,17 @@ impl ApiError {
 
     fn status_and_message(&self) -> (StatusCode, String) {
         match self {
-            Self::Engine(error @ (EngineError::InvalidImage(_) | EngineError::InvalidDocument(_))) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, error.to_string())
-            }
+            Self::Engine(
+                error @ (EngineError::InvalidImage(_)
+                | EngineError::InvalidDocument(_)
+                | EngineError::InvalidRequest(_)),
+            ) => (StatusCode::UNPROCESSABLE_ENTITY, error.to_string()),
             Self::Engine(error @ EngineError::UnsupportedLanguage(_)) => (StatusCode::BAD_REQUEST, error.to_string()),
             Self::Engine(error) => {
                 tracing::error!(%error, "request failed");
                 (StatusCode::INTERNAL_SERVER_ERROR, Self::INTERNAL_MESSAGE.to_string())
             }
+            Self::Unavailable(message) => (StatusCode::NOT_IMPLEMENTED, (*message).to_string()),
             Self::Worker(message) => {
                 tracing::error!(%message, "worker thread failed");
                 (StatusCode::INTERNAL_SERVER_ERROR, Self::INTERNAL_MESSAGE.to_string())

@@ -2,7 +2,6 @@ use std::path::Path;
 
 use engine_core::EngineError;
 use image::RgbImage;
-use ort::environment::Environment;
 
 use crate::classifier_input::ClassifierInput;
 use crate::image_classifier::ImageClassifier;
@@ -15,13 +14,13 @@ pub struct DocumentOrientation {
 }
 
 impl DocumentOrientation {
-    pub fn load(environment: &Environment, model_path: &Path) -> Result<Self, EngineError> {
+    pub fn load(model_path: &Path) -> Result<Self, EngineError> {
         let input = ClassifierInput::ShortSideCenterCrop {
             short_side: ClassifierSettings::DOCUMENT_SHORT_SIDE,
             crop_side: ClassifierSettings::DOCUMENT_CROP_SIDE,
         };
         Ok(Self {
-            classifier: ImageClassifier::load(environment, model_path, input)?,
+            classifier: ImageClassifier::load(model_path, input)?,
         })
     }
 

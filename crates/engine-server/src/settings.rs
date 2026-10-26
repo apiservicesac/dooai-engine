@@ -23,4 +23,20 @@ pub struct ApiPaths;
 impl ApiPaths {
     pub const HEALTH: &'static str = "/health";
     pub const OCR: &'static str = "/v1/ocr";
+    pub const EMBED: &'static str = "/v1/embed";
+    pub const SIMILAR: &'static str = "/v1/similar";
+}
+
+/// How much one text request may ask for.
+pub struct RequestLimits;
+
+impl RequestLimits {
+    pub const MAX_TEXTS: usize = 128;
+    pub const MAX_CANDIDATES: usize = 5000;
+    pub const MAX_TEXT_CHARACTERS: usize = 20_000;
+    pub const DEFAULT_TOP_K: usize = 5;
+    pub const MAX_TOP_K: usize = 100;
+    pub const DEFAULT_MIN_SCORE: f32 = 0.0;
+    /// Bodies of the JSON endpoints, in bytes: 5000 candidates of a few hundred characters fit.
+    pub const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
 }

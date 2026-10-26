@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum EngineError {
     #[error("invalid image: {0}")]
     InvalidImage(String),
+    #[error("invalid request: {0}")]
+    InvalidRequest(String),
     #[error("invalid document: {0}")]
     InvalidDocument(String),
     #[error("unsupported language: {0}")]

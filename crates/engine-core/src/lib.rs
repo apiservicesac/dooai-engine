@@ -9,7 +9,9 @@ mod point;
 mod read_document;
 mod reading_order;
 mod settings;
+mod text_embedder;
 mod text_quad;
+mod vector_math;
 
 pub use bounding_box::BoundingBox;
 pub use engine_error::EngineError;
@@ -20,4 +22,6 @@ pub use ocr_line::OcrLine;
 pub use ocr_options::OcrOptions;
 pub use point::Point;
 pub use read_document::{ReadDocument, ReadPage};
+pub use text_embedder::TextEmbedder;
 pub use text_quad::TextQuad;
+pub use vector_math::VectorMath;

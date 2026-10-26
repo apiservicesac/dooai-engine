@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use axum::Router;
-use engine_core::OcrEngine;
+use engine_core::{OcrEngine, TextEmbedder};
 use engine_document::DocumentReader;
 use tokio::net::TcpListener;
 
 use crate::application_state::ApplicationState;
-use crate::routes::{HealthRoute, OcrRoute};
+use crate::routes::{EmbedRoute, HealthRoute, OcrRoute, SimilarRoute};
 use crate::server_config::ServerConfig;
 use crate::shutdown_signal::ShutdownSignal;
 
@@ -21,14 +21,23 @@ impl Application {
             config,
             state: ApplicationState {
                 document_reader: Arc::new(DocumentReader::new(ocr_engine)),
+                embedder: None,
             },
         }
+    }
+
+    /// Turns on `/v1/embed` and `/v1/similar`.
+    pub fn with_embedder(mut self, embedder: Arc<dyn TextEmbedder>) -> Self {
+        self.state.embedder = Some(embedder);
+        self
     }
 
     pub fn router(&self) -> Router {
         Router::new()
             .merge(HealthRoute::router())
             .merge(OcrRoute::router(self.config.max_upload_bytes))
+            .merge(EmbedRoute::router())
+            .merge(SimilarRoute::router())
             .with_state(self.state.clone())
     }
 

@@ -11,6 +11,7 @@ workspace = true
 axum = "0.8.9"
 engine-core = { version = "0.1.0", path = "../engine-core" }
 engine-document = { version = "0.1.0", path = "../engine-document" }
+engine-embed = { version = "0.1.0", path = "../engine-embed" }
 engine-ocr = { version = "0.1.0", path = "../engine-ocr" }
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"

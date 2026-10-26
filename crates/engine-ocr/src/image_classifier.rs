@@ -1,12 +1,11 @@
 use std::path::Path;
 
 use engine_core::EngineError;
+use engine_onnx::OnnxModel;
 use image::RgbImage;
 use ndarray::Ix2;
-use ort::environment::Environment;
 
 use crate::classifier_input::ClassifierInput;
-use crate::onnx_model::OnnxModel;
 use crate::settings::ClassifierSettings;
 use crate::tensor_builder::{ChannelOrder, TensorBuilder};
 
@@ -25,9 +24,9 @@ pub struct ImageClassifier {
 }
 
 impl ImageClassifier {
-    pub fn load(environment: &Environment, model_path: &Path, input: ClassifierInput) -> Result<Self, EngineError> {
+    pub fn load(model_path: &Path, input: ClassifierInput) -> Result<Self, EngineError> {
         Ok(Self {
-            model: OnnxModel::load(environment, model_path)?,
+            model: OnnxModel::load(model_path)?,
             input,
             tensor_builder: TensorBuilder::new(
                 ChannelOrder::RedGreenBlue,
@@ -47,7 +46,7 @@ impl ImageClassifier {
     /// Every class, most likely first.
     pub fn rank(&self, image: &RgbImage) -> Result<Vec<Classification>, EngineError> {
         let prepared = self.input.prepare(image);
-        let output = self.model.run(self.tensor_builder.build(&prepared))?;
+        let output = self.model.run_image(self.tensor_builder.build(&prepared))?;
         let probabilities = output
             .into_dimensionality::<Ix2>()
             .map_err(|error| EngineError::Inference(format!("unexpected classifier output: {error}")))?;

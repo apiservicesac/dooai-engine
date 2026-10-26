@@ -1,14 +1,13 @@
 use std::path::Path;
 
 use engine_core::{EngineError, TextQuad};
+use engine_onnx::OnnxModel;
 use image::RgbImage;
 use image::imageops::{self, FilterType};
 use ndarray::{Axis, Ix4};
-use ort::environment::Environment;
 
 use crate::box_extractor::BoxExtractor;
 use crate::detector_settings::DetectorSettings;
-use crate::onnx_model::OnnxModel;
 use crate::settings::DetectorInput;
 use crate::tensor_builder::{ChannelOrder, TensorBuilder};
 
@@ -20,9 +19,9 @@ pub struct TextDetector {
 }
 
 impl TextDetector {
-    pub fn load(environment: &Environment, model_path: &Path, settings: DetectorSettings) -> Result<Self, EngineError> {
+    pub fn load(model_path: &Path, settings: DetectorSettings) -> Result<Self, EngineError> {
         Ok(Self {
-            model: OnnxModel::load(environment, model_path)?,
+            model: OnnxModel::load(model_path)?,
             tensor_builder: TensorBuilder::new(
                 ChannelOrder::BlueGreenRed,
                 DetectorInput::MEAN,
@@ -36,7 +35,7 @@ impl TextDetector {
         let (resized_width, resized_height) = Self::network_size(image.width(), image.height());
         let resized = imageops::resize(image, resized_width, resized_height, FilterType::Triangle);
 
-        let output = self.model.run(self.tensor_builder.build(&resized))?;
+        let output = self.model.run_image(self.tensor_builder.build(&resized))?;
         let probability_maps = output
             .into_dimensionality::<Ix4>()
             .map_err(|error| EngineError::Inference(format!("unexpected detector output: {error}")))?;

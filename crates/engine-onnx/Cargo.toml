@@ -1,0 +1,13 @@
+[package]
+name = "engine-onnx"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+engine-core = { version = "0.1.0", path = "../engine-core" }
+ndarray = "0.17.2"
+ort = "2.0.0-rc.15"
+
+[lints]
+workspace = true

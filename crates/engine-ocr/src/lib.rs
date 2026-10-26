@@ -10,7 +10,6 @@ mod line_cropper;
 mod line_orientation;
 mod model_files;
 mod model_layout;
-mod onnx_model;
 mod paddle_ocr_engine;
 mod recognized_text;
 mod recognizer_set;

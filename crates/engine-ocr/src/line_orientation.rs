@@ -2,7 +2,6 @@ use std::path::Path;
 
 use engine_core::EngineError;
 use image::RgbImage;
-use ort::environment::Environment;
 
 use crate::classifier_input::ClassifierInput;
 use crate::image_classifier::ImageClassifier;
@@ -16,13 +15,13 @@ pub struct LineOrientation {
 }
 
 impl LineOrientation {
-    pub fn load(environment: &Environment, model_path: &Path) -> Result<Self, EngineError> {
+    pub fn load(model_path: &Path) -> Result<Self, EngineError> {
         let input = ClassifierInput::Fixed {
             width: ClassifierSettings::LINE_WIDTH,
             height: ClassifierSettings::LINE_HEIGHT,
         };
         Ok(Self {
-            classifier: ImageClassifier::load(environment, model_path, input)?,
+            classifier: ImageClassifier::load(model_path, input)?,
         })
     }
 

@@ -1,6 +1,5 @@
 use engine_core::EngineError;
 use image::RgbImage;
-use ort::environment::Environment;
 
 use crate::character_set::CharacterSet;
 use crate::language_catalog::LanguageCatalog;
@@ -27,13 +26,13 @@ pub struct RecognizerSet {
 }
 
 impl RecognizerSet {
-    pub fn load(environment: &Environment, layout: &ModelLayout) -> Result<Self, EngineError> {
+    pub fn load(layout: &ModelLayout) -> Result<Self, EngineError> {
         let mut recognizers = Vec::new();
         for (name, files) in layout.recognizers()? {
             let character_set = CharacterSet::from_config_file(&files.config)?;
             recognizers.push(NamedRecognizer {
                 name,
-                recognizer: TextRecognizer::load(environment, &files.model, character_set)?,
+                recognizer: TextRecognizer::load(&files.model, character_set)?,
             });
         }
         Ok(Self { recognizers })

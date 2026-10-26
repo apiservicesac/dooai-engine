@@ -1,14 +1,13 @@
 use std::path::Path;
 
 use engine_core::EngineError;
+use engine_onnx::OnnxModel;
 use image::RgbImage;
 use image::imageops::{self, FilterType};
 use ndarray::{Axis, Ix3};
-use ort::environment::Environment;
 
 use crate::character_set::CharacterSet;
 use crate::ctc_decoder::CtcDecoder;
-use crate::onnx_model::OnnxModel;
 use crate::recognized_text::RecognizedText;
 use crate::settings::RecognizerInput;
 use crate::tensor_builder::{ChannelOrder, TensorBuilder};
@@ -21,13 +20,9 @@ pub struct TextRecognizer {
 }
 
 impl TextRecognizer {
-    pub fn load(
-        environment: &Environment,
-        model_path: &Path,
-        character_set: CharacterSet,
-    ) -> Result<Self, EngineError> {
+    pub fn load(model_path: &Path, character_set: CharacterSet) -> Result<Self, EngineError> {
         Ok(Self {
-            model: OnnxModel::load(environment, model_path)?,
+            model: OnnxModel::load(model_path)?,
             tensor_builder: TensorBuilder::new(
                 ChannelOrder::BlueGreenRed,
                 RecognizerInput::MEAN,
@@ -41,7 +36,7 @@ impl TextRecognizer {
         let width = Self::network_width(line_image.width(), line_image.height());
         let resized = imageops::resize(line_image, width, RecognizerInput::HEIGHT, FilterType::Triangle);
 
-        let output = self.model.run(self.tensor_builder.build(&resized))?;
+        let output = self.model.run_image(self.tensor_builder.build(&resized))?;
         let sequences = output
             .into_dimensionality::<Ix3>()
             .map_err(|error| EngineError::Inference(format!("unexpected recognizer output: {error}")))?;

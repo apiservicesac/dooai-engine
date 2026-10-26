@@ -26,17 +26,13 @@ pub struct PaddleOcrEngine {
 impl PaddleOcrEngine {
     pub fn load(models_directory: &Path) -> Result<Self, EngineError> {
         let layout = ModelLayout::new(models_directory);
-        let environment = ort::init()
-            .build()
-            .map_err(|error| EngineError::ModelLoad(error.to_string()))?;
-
         let detector_files = layout.detector()?;
         let settings = DetectorSettings::from_config_file(&detector_files.config)?;
         Ok(Self {
-            document_orientation: DocumentOrientation::load(&environment, &layout.document_orientation()?.model)?,
-            detector: TextDetector::load(&environment, &detector_files.model, settings)?,
-            line_orientation: LineOrientation::load(&environment, &layout.line_orientation()?.model)?,
-            recognizers: RecognizerSet::load(&environment, &layout)?,
+            document_orientation: DocumentOrientation::load(&layout.document_orientation()?.model)?,
+            detector: TextDetector::load(&detector_files.model, settings)?,
+            line_orientation: LineOrientation::load(&layout.line_orientation()?.model)?,
+            recognizers: RecognizerSet::load(&layout)?,
         })
     }
 

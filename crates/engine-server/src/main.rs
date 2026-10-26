@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use engine_embed::E5Embedder;
 use engine_ocr::PaddleOcrEngine;
 use engine_server::{Application, ServerConfig};
 use tracing_subscriber::EnvFilter;
@@ -19,8 +20,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = ServerConfig::from_environment()?;
     tracing::info!(models = %config.models_directory.display(), "loading OCR models");
-    let ocr_engine = PaddleOcrEngine::load(&config.models_directory)?;
+    let models_directory = config.models_directory.clone();
+    let ocr_engine = PaddleOcrEngine::load(&models_directory)?;
 
-    Application::new(config, Arc::new(ocr_engine)).serve().await?;
+    let mut application = Application::new(config, Arc::new(ocr_engine));
+    if E5Embedder::is_installed(&models_directory) {
+        tracing::info!("loading the embedding model");
+        application = application.with_embedder(Arc::new(E5Embedder::load(&models_directory)?));
+    } else {
+        tracing::warn!("the embedding model is not installed: /v1/embed and /v1/similar are disabled");
+    }
+    application.serve().await?;
     Ok(())
 }
