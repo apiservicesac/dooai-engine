@@ -1,0 +1,8 @@
+dooai-engine is licensed under the Apache License 2.0 (see LICENSE).
+
+It runs ONNX Runtime by Microsoft, linked into the binary (MIT licence).
+
+The models are not included; `scripts/download-models.sh` downloads them from Hugging Face:
+- PP-OCRv6 text detection and recognition, PP-OCRv5 recognizers for other alphabets and the PP-LCNet orientation
+  classifiers, by PaddlePaddle (Apache 2.0), in the ONNX files published by PaddlePaddle.
+- multilingual-e5-small by Microsoft Research / intfloat (MIT), as ONNX weights converted by Xenova.
