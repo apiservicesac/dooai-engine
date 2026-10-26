@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use engine_core::OcrEngine;
+use engine_document::DocumentReader;
 use tokio::net::TcpListener;
 
 use crate::application_state::ApplicationState;
@@ -18,7 +19,9 @@ impl Application {
     pub fn new(config: ServerConfig, ocr_engine: Arc<dyn OcrEngine>) -> Self {
         Self {
             config,
-            state: ApplicationState { ocr_engine },
+            state: ApplicationState {
+                document_reader: Arc::new(DocumentReader::new(ocr_engine)),
+            },
         }
     }
 

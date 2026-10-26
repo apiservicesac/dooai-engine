@@ -1,0 +1,17 @@
+[package]
+name = "engine-document"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+engine-core = { version = "0.1.0", path = "../engine-core" }
+hayro = "0.8.0"
+pdf_oxide = "0.3.78"
+tracing = "0.1.44"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+engine-ocr = { path = "../engine-ocr" }

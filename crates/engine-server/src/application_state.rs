@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use engine_core::OcrEngine;
+use engine_document::DocumentReader;
 
 /// What every request handler shares.
 #[derive(Clone)]
 pub struct ApplicationState {
-    pub ocr_engine: Arc<dyn OcrEngine>,
+    pub document_reader: Arc<DocumentReader>,
 }

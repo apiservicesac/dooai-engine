@@ -7,4 +7,6 @@ impl DocumentLayout {
     /// Between lines that share a visual row, so table columns stay apart.
     pub const COLUMN_SEPARATOR: &'static str = "\t";
     pub const ROW_SEPARATOR: &'static str = "\n";
+    /// Between the text of two pages.
+    pub const PAGE_SEPARATOR: &'static str = "\n\n";
 }

@@ -22,7 +22,9 @@ impl ApiError {
 
     fn status_and_message(&self) -> (StatusCode, String) {
         match self {
-            Self::Engine(error @ EngineError::InvalidImage(_)) => (StatusCode::UNPROCESSABLE_ENTITY, error.to_string()),
+            Self::Engine(error @ (EngineError::InvalidImage(_) | EngineError::InvalidDocument(_))) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, error.to_string())
+            }
             Self::Engine(error @ EngineError::UnsupportedLanguage(_)) => (StatusCode::BAD_REQUEST, error.to_string()),
             Self::Engine(error) => {
                 tracing::error!(%error, "request failed");
