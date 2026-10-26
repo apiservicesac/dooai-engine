@@ -18,6 +18,9 @@ struct OcrScenario {
 impl OcrScenario {
     fn load() -> Option<Self> {
         let directory = PathBuf::from(std::env::var_os(MODELS_DIRECTORY_VARIABLE)?);
+        if !directory.is_dir() {
+            return None;
+        }
         let engine = PaddleOcrEngine::load(&directory).expect("models load");
         Some(Self { engine })
     }

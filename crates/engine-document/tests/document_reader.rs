@@ -31,6 +31,9 @@ impl PdfScenario {
     /// A reader backed by the real models, or `None` when they are not installed.
     fn read_with_ocr(file: &[u8]) -> Option<ReadDocument> {
         let directory = PathBuf::from(std::env::var_os(MODELS_DIRECTORY_VARIABLE)?);
+        if !directory.is_dir() {
+            return None;
+        }
         let engine = PaddleOcrEngine::load(&directory).expect("models load");
         Some(
             DocumentReader::new(Arc::new(engine))

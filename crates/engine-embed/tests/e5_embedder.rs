@@ -14,6 +14,9 @@ struct EmbeddingScenario {
 impl EmbeddingScenario {
     fn load() -> Option<Self> {
         let directory = PathBuf::from(std::env::var_os(MODELS_DIRECTORY_VARIABLE)?);
+        if !directory.is_dir() {
+            return None;
+        }
         Some(Self {
             embedder: E5Embedder::load(&directory).expect("the embedding model loads"),
         })
