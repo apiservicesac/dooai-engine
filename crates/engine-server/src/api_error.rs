@@ -30,6 +30,10 @@ impl ApiError {
                 | EngineError::InvalidRequest(_)),
             ) => (StatusCode::UNPROCESSABLE_ENTITY, error.to_string()),
             Self::Engine(error @ EngineError::UnsupportedLanguage(_)) => (StatusCode::BAD_REQUEST, error.to_string()),
+            Self::Engine(error @ EngineError::UpstreamUnavailable(_)) => {
+                tracing::error!(%error, "a service the engine depends on failed");
+                (StatusCode::BAD_GATEWAY, error.to_string())
+            }
             Self::Engine(error) => {
                 tracing::error!(%error, "request failed");
                 (StatusCode::INTERNAL_SERVER_ERROR, Self::INTERNAL_MESSAGE.to_string())

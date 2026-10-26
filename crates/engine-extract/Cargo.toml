@@ -1,0 +1,16 @@
+[package]
+name = "engine-extract"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+engine-core = { version = "0.1.0", path = "../engine-core" }
+schemars = "1.2.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ureq = { version = "3.5.0", features = ["json"] }
+
+[lints]
+workspace = true

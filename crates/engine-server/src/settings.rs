@@ -10,6 +10,10 @@ impl EnvironmentVariables {
     /// A JSON file with the kinds of document to recognize and the words that name them; without it the built-in
     /// lexicon is used.
     pub const LEXICON_FILE: &'static str = "ENGINE_LEXICON_FILE";
+    /// A language model that speaks the OpenAI chat completions API turns on `/v1/extract`.
+    pub const LLM_URL: &'static str = "ENGINE_LLM_URL";
+    pub const LLM_MODEL: &'static str = "ENGINE_LLM_MODEL";
+    pub const LLM_API_KEY: &'static str = "ENGINE_LLM_API_KEY";
 }
 
 /// What the server uses when a variable is not set.
@@ -29,6 +33,7 @@ impl ApiPaths {
     pub const EMBED: &'static str = "/v1/embed";
     pub const SIMILAR: &'static str = "/v1/similar";
     pub const CLASSIFY: &'static str = "/v1/classify";
+    pub const EXTRACT: &'static str = "/v1/extract";
 }
 
 /// How much one text request may ask for.

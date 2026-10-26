@@ -55,8 +55,16 @@ mod tests {
     #[test]
     fn skips_text_that_was_already_claimed() {
         let text = "tax invoice 7";
+        let whole_phrase = 0..11;
+        let only_tax = 0..3;
 
-        assert_eq!(PhraseSearch::find(text, "invoice", &[0..11]), None);
-        assert_eq!(PhraseSearch::find(text, "invoice", &[0..3]), Some(4..11));
+        assert_eq!(
+            PhraseSearch::find(text, "invoice", std::slice::from_ref(&whole_phrase)),
+            None
+        );
+        assert_eq!(
+            PhraseSearch::find(text, "invoice", std::slice::from_ref(&only_tax)),
+            Some(4..11)
+        );
     }
 }

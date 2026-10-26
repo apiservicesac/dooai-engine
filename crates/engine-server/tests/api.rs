@@ -70,6 +70,7 @@ impl ApiScenario {
             models_directory: "unused".into(),
             max_upload_bytes: 1024,
             lexicon_file: None,
+            language_model: None,
         }
     }
 
@@ -240,4 +241,13 @@ async fn classify_answers_unknown_instead_of_guessing() {
 
     assert_eq!(status, StatusCode::OK);
     assert!(answer.starts_with(r#"{"label":"unknown","confidence":0.0"#), "{answer}");
+}
+
+#[tokio::test]
+async fn extract_answers_501_without_a_language_model() {
+    let request = Request::post("/v1/extract").body(Body::from("valid")).unwrap();
+
+    let response = ApiScenario::application().router().oneshot(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
 }

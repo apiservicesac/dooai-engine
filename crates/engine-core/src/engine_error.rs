@@ -12,6 +12,8 @@ pub enum EngineError {
     UnsupportedLanguage(String),
     #[error("invalid configuration: {0}")]
     Configuration(String),
+    #[error("{0}")]
+    UpstreamUnavailable(String),
     #[error("model could not be loaded: {0}")]
     ModelLoad(String),
     #[error("inference failed: {0}")]

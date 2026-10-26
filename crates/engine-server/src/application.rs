@@ -4,10 +4,11 @@ use axum::Router;
 use engine_classify::{Lexicon, LexiconClassifier};
 use engine_core::{OcrEngine, TextEmbedder};
 use engine_document::DocumentReader;
+use engine_extract::LanguageModelExtractor;
 use tokio::net::TcpListener;
 
 use crate::application_state::ApplicationState;
-use crate::routes::{ClassifyRoute, EmbedRoute, HealthRoute, OcrRoute, SimilarRoute};
+use crate::routes::{ClassifyRoute, EmbedRoute, ExtractRoute, HealthRoute, OcrRoute, SimilarRoute};
 use crate::server_config::ServerConfig;
 use crate::shutdown_signal::ShutdownSignal;
 
@@ -24,8 +25,15 @@ impl Application {
                 document_reader: Arc::new(DocumentReader::new(ocr_engine)),
                 embedder: None,
                 classifier: Arc::new(LexiconClassifier::new(Lexicon::built_in())),
+                extractor: None,
             },
         }
+    }
+
+    /// Turns on `/v1/extract`.
+    pub fn with_extractor(mut self, extractor: Arc<LanguageModelExtractor>) -> Self {
+        self.state.extractor = Some(extractor);
+        self
     }
 
     /// Replaces the built-in kinds of document with others.
@@ -47,6 +55,7 @@ impl Application {
             .merge(EmbedRoute::router())
             .merge(SimilarRoute::router())
             .merge(ClassifyRoute::router())
+            .merge(ExtractRoute::router(self.config.max_upload_bytes))
             .with_state(self.state.clone())
     }
 

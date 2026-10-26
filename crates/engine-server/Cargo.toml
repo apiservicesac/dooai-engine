@@ -13,6 +13,7 @@ engine-classify = { version = "0.1.0", path = "../engine-classify" }
 engine-core = { version = "0.1.0", path = "../engine-core" }
 engine-document = { version = "0.1.0", path = "../engine-document" }
 engine-embed = { version = "0.1.0", path = "../engine-embed" }
+engine-extract = { version = "0.1.0", path = "../engine-extract" }
 engine-ocr = { version = "0.1.0", path = "../engine-ocr" }
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"

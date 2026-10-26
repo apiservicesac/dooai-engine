@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use engine_core::EngineError;
+use engine_extract::LanguageModelSettings;
 
 use crate::settings::{Defaults, EnvironmentVariables};
 
@@ -11,6 +12,7 @@ pub struct ServerConfig {
     pub models_directory: PathBuf,
     pub max_upload_bytes: usize,
     pub lexicon_file: Option<PathBuf>,
+    pub language_model: Option<LanguageModelSettings>,
 }
 
 impl ServerConfig {
@@ -20,7 +22,9 @@ impl ServerConfig {
         let lexicon_file = std::env::var(EnvironmentVariables::LEXICON_FILE)
             .ok()
             .filter(|path| !path.is_empty());
+        let language_model = Self::language_model()?;
         Ok(Self {
+            language_model,
             lexicon_file: lexicon_file.map(PathBuf::from),
             address: address
                 .parse()
@@ -37,6 +41,25 @@ impl ServerConfig {
                     .map_err(|error| Self::invalid(EnvironmentVariables::MAX_UPLOAD_BYTES, &max_upload_bytes, error))?
             },
         })
+    }
+
+    /// Set `ENGINE_LLM_URL` and `ENGINE_LLM_MODEL` together to turn extraction on.
+    fn language_model() -> Result<Option<LanguageModelSettings>, EngineError> {
+        let url = Self::read(EnvironmentVariables::LLM_URL, "");
+        let model = Self::read(EnvironmentVariables::LLM_MODEL, "");
+        match (url.is_empty(), model.is_empty()) {
+            (true, true) => Ok(None),
+            (false, false) => Ok(Some(LanguageModelSettings {
+                base_url: url,
+                model,
+                api_key: Some(Self::read(EnvironmentVariables::LLM_API_KEY, "")).filter(|key| !key.is_empty()),
+            })),
+            _ => Err(EngineError::Configuration(format!(
+                "{} and {} must be set together",
+                EnvironmentVariables::LLM_URL,
+                EnvironmentVariables::LLM_MODEL
+            ))),
+        }
     }
 
     fn read(variable: &str, default: &str) -> String {
