@@ -7,6 +7,9 @@ impl EnvironmentVariables {
     pub const ADDRESS: &'static str = "ENGINE_ADDRESS";
     pub const MODELS_DIRECTORY: &'static str = "ENGINE_MODELS_DIR";
     pub const MAX_UPLOAD_BYTES: &'static str = "ENGINE_MAX_UPLOAD_BYTES";
+    /// A JSON file with the kinds of document to recognize and the words that name them; without it the built-in
+    /// lexicon is used.
+    pub const LEXICON_FILE: &'static str = "ENGINE_LEXICON_FILE";
 }
 
 /// What the server uses when a variable is not set.
@@ -25,6 +28,7 @@ impl ApiPaths {
     pub const OCR: &'static str = "/v1/ocr";
     pub const EMBED: &'static str = "/v1/embed";
     pub const SIMILAR: &'static str = "/v1/similar";
+    pub const CLASSIFY: &'static str = "/v1/classify";
 }
 
 /// How much one text request may ask for.
@@ -34,6 +38,8 @@ impl RequestLimits {
     pub const MAX_TEXTS: usize = 128;
     pub const MAX_CANDIDATES: usize = 5000;
     pub const MAX_TEXT_CHARACTERS: usize = 20_000;
+    /// A whole document may be sent to classify; only its start is read.
+    pub const MAX_CLASSIFY_CHARACTERS: usize = 200_000;
     pub const DEFAULT_TOP_K: usize = 5;
     pub const MAX_TOP_K: usize = 100;
     pub const DEFAULT_MIN_SCORE: f32 = 0.0;

@@ -69,6 +69,7 @@ impl ApiScenario {
             address: "127.0.0.1:0".parse().unwrap(),
             models_directory: "unused".into(),
             max_upload_bytes: 1024,
+            lexicon_file: None,
         }
     }
 
@@ -155,8 +156,16 @@ async fn health_lists_the_capabilities_that_are_installed() {
     let read = |response: axum::response::Response| async move {
         String::from_utf8(response.into_body().collect().await.unwrap().to_bytes().to_vec()).unwrap()
     };
-    assert!(read(without).await.contains(r#""capabilities":["ocr"]"#));
-    assert!(read(with).await.contains(r#""capabilities":["ocr","embeddings"]"#));
+    assert!(
+        read(without)
+            .await
+            .contains(r#""capabilities":["ocr","classification"]"#)
+    );
+    assert!(
+        read(with)
+            .await
+            .contains(r#""capabilities":["ocr","classification","embeddings"]"#)
+    );
 }
 
 #[tokio::test]
@@ -208,4 +217,27 @@ async fn text_endpoints_answer_501_when_the_model_is_not_installed() {
 
     assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
     assert!(body.contains("not installed"), "{body}");
+}
+
+#[tokio::test]
+async fn classify_says_what_kind_of_document_a_text_is_and_why() {
+    let body = r#"{"text":"FACTURA ELECTRÓNICA F001-123 Cliente: Andina SAC Total a pagar S/ 118.00"}"#;
+
+    let (status, answer) = ApiScenario::post_json(ApiScenario::application(), "/v1/classify", body).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        answer.starts_with(r#"{"label":"invoice""#) && answer.contains(r#""matched":["#),
+        "{answer}"
+    );
+}
+
+#[tokio::test]
+async fn classify_answers_unknown_instead_of_guessing() {
+    let body = r#"{"text":"Dear Mr. Smith, thank you for the meeting."}"#;
+
+    let (status, answer) = ApiScenario::post_json(ApiScenario::application(), "/v1/classify", body).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(answer.starts_with(r#"{"label":"unknown","confidence":0.0"#), "{answer}");
 }

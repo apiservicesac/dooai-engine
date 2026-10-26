@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use axum::Router;
+use engine_classify::{Lexicon, LexiconClassifier};
 use engine_core::{OcrEngine, TextEmbedder};
 use engine_document::DocumentReader;
 use tokio::net::TcpListener;
 
 use crate::application_state::ApplicationState;
-use crate::routes::{EmbedRoute, HealthRoute, OcrRoute, SimilarRoute};
+use crate::routes::{ClassifyRoute, EmbedRoute, HealthRoute, OcrRoute, SimilarRoute};
 use crate::server_config::ServerConfig;
 use crate::shutdown_signal::ShutdownSignal;
 
@@ -22,8 +23,15 @@ impl Application {
             state: ApplicationState {
                 document_reader: Arc::new(DocumentReader::new(ocr_engine)),
                 embedder: None,
+                classifier: Arc::new(LexiconClassifier::new(Lexicon::built_in())),
             },
         }
+    }
+
+    /// Replaces the built-in kinds of document with others.
+    pub fn with_classifier(mut self, classifier: Arc<LexiconClassifier>) -> Self {
+        self.state.classifier = classifier;
+        self
     }
 
     /// Turns on `/v1/embed` and `/v1/similar`.
@@ -38,6 +46,7 @@ impl Application {
             .merge(OcrRoute::router(self.config.max_upload_bytes))
             .merge(EmbedRoute::router())
             .merge(SimilarRoute::router())
+            .merge(ClassifyRoute::router())
             .with_state(self.state.clone())
     }
 

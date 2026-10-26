@@ -24,7 +24,7 @@ image: ## Build the server Docker image (dooai-engine)
 	docker build -t dooai-engine -f docker/server.Dockerfile .
 
 run: models ## Run the server on http://localhost:8080 (ENGINE_PORT=... to change)
-	ENGINE_MODELS_DIR=/project/models ./dev.sh cargo run --release -p engine-server
+	ENGINE_PUBLISH_PORT=1 ENGINE_MODELS_DIR=/project/models ./dev.sh cargo run --release -p engine-server
 
 models: ## Download the OCR models into models/ (PACKS="cyrillic korean" for only some language packs)
 	./scripts/download-models.sh $(PACKS)

@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 axum = "0.8.9"
+engine-classify = { version = "0.1.0", path = "../engine-classify" }
 engine-core = { version = "0.1.0", path = "../engine-core" }
 engine-document = { version = "0.1.0", path = "../engine-document" }
 engine-embed = { version = "0.1.0", path = "../engine-embed" }

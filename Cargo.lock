@@ -710,6 +710,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-classify"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "serde",
+ "serde_json",
+ "unicode-normalization",
+]
+
+[[package]]
 name = "engine-core"
 version = "0.1.0"
 dependencies = [
@@ -767,6 +777,7 @@ name = "engine-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "engine-classify",
  "engine-core",
  "engine-document",
  "engine-embed",
