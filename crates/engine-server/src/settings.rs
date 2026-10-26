@@ -14,7 +14,7 @@ pub struct Defaults;
 
 impl Defaults {
     pub const ADDRESS: &'static str = "0.0.0.0:8080";
-    pub const MODELS_DIRECTORY: &'static str = "models/small";
+    pub const MODELS_DIRECTORY: &'static str = "models";
     pub const MAX_UPLOAD_BYTES: usize = 20 * 1024 * 1024;
 }
 

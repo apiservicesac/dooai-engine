@@ -1,12 +1,21 @@
 mod bounding_box;
 mod engine_error;
+mod fallback_ocr_engine;
 mod ocr_document;
 mod ocr_engine;
 mod ocr_line;
+mod ocr_options;
+mod point;
+mod reading_order;
 mod settings;
+mod text_quad;
 
 pub use bounding_box::BoundingBox;
 pub use engine_error::EngineError;
+pub use fallback_ocr_engine::FallbackOcrEngine;
 pub use ocr_document::OcrDocument;
 pub use ocr_engine::OcrEngine;
 pub use ocr_line::OcrLine;
+pub use ocr_options::OcrOptions;
+pub use point::Point;
+pub use text_quad::TextQuad;

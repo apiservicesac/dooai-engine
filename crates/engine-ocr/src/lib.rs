@@ -1,16 +1,23 @@
 mod box_extractor;
 mod character_set;
-mod connected_component;
+mod classifier_input;
 mod ctc_decoder;
 mod detector_settings;
+mod document_orientation;
+mod image_classifier;
+mod language_catalog;
+mod line_cropper;
+mod line_orientation;
 mod model_files;
+mod model_layout;
 mod onnx_model;
 mod paddle_ocr_engine;
 mod recognized_text;
+mod recognizer_set;
+mod rotation;
 mod settings;
 mod tensor_builder;
 mod text_detector;
 mod text_recognizer;
 
-pub use model_files::ModelFiles;
 pub use paddle_ocr_engine::PaddleOcrEngine;

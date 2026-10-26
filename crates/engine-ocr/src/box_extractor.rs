@@ -1,12 +1,18 @@
-use engine_core::BoundingBox;
-use ndarray::{Array2, ArrayView2};
+use engine_core::{Point, TextQuad};
+use image::{GrayImage, Luma};
+use imageproc::contours::{BorderType, find_contours};
+use imageproc::drawing::draw_polygon_mut;
+use imageproc::geometry::min_area_rect;
+use imageproc::point::Point as PixelPoint;
+use ndarray::ArrayView2;
 
-use crate::connected_component::ConnectedComponent;
 use crate::detector_settings::DetectorSettings;
 use crate::settings::DetectorInput;
 
-/// Turns the detector's probability map into text boxes (DB post-processing).
-/// Boxes are axis-aligned, which suits scanned and photographed documents.
+const FOREGROUND: Luma<u8> = Luma([255]);
+
+/// Turns the detector's probability map into text lines (DB post-processing): threshold the map, trace each
+/// region's outline, fit the smallest rotated rectangle around it, score it, and grow it back by the unclip distance.
 pub struct BoxExtractor {
     settings: DetectorSettings,
 }
@@ -16,80 +22,81 @@ impl BoxExtractor {
         Self { settings }
     }
 
-    /// Boxes are returned in the coordinates of the probability map.
-    pub fn extract(&self, probability_map: ArrayView2<f32>) -> Vec<BoundingBox> {
+    /// Lines are returned in the coordinates of the probability map.
+    pub fn extract(&self, probability_map: ArrayView2<f32>) -> Vec<TextQuad> {
+        let bitmap = self.binarize(&probability_map);
+        find_contours::<i32>(&bitmap)
+            .into_iter()
+            .filter(|contour| contour.border_type == BorderType::Outer)
+            .take(DetectorInput::MAX_REGIONS)
+            .filter_map(|contour| self.to_text_quad(&contour.points, &probability_map))
+            .collect()
+    }
+
+    fn binarize(&self, probability_map: &ArrayView2<f32>) -> GrayImage {
         let (rows, columns) = probability_map.dim();
-        let mut visited = Array2::from_elem((rows, columns), false);
-        let mut boxes = Vec::new();
-
-        for row in 0..rows {
-            for column in 0..columns {
-                if visited[[row, column]] || !self.is_text_pixel(probability_map[[row, column]]) {
-                    continue;
-                }
-                let component = self.grow_component(&probability_map, &mut visited, row, column);
-                if let Some(text_box) = self.to_text_box(&component) {
-                    boxes.push(text_box);
-                }
-            }
-        }
-        boxes
+        GrayImage::from_fn(columns as u32, rows as u32, |column, row| {
+            let probability = probability_map[[row as usize, column as usize]];
+            Luma([if probability >= self.settings.threshold { 255 } else { 0 }])
+        })
     }
 
-    fn is_text_pixel(&self, probability: f32) -> bool {
-        probability >= self.settings.threshold
-    }
-
-    /// Flood fill over the 8 neighbours of each pixel.
-    fn grow_component(
-        &self,
-        probability_map: &ArrayView2<f32>,
-        visited: &mut Array2<bool>,
-        start_row: usize,
-        start_column: usize,
-    ) -> ConnectedComponent {
-        let (rows, columns) = probability_map.dim();
-        let mut component =
-            ConnectedComponent::starting_at(start_row, start_column, probability_map[[start_row, start_column]]);
-        visited[[start_row, start_column]] = true;
-        let mut pending = vec![(start_row, start_column)];
-
-        while let Some((row, column)) = pending.pop() {
-            let row_range = row.saturating_sub(1)..=(row + 1).min(rows - 1);
-            for neighbour_row in row_range {
-                let column_range = column.saturating_sub(1)..=(column + 1).min(columns - 1);
-                for neighbour_column in column_range {
-                    let probability = probability_map[[neighbour_row, neighbour_column]];
-                    if visited[[neighbour_row, neighbour_column]] || !self.is_text_pixel(probability) {
-                        continue;
-                    }
-                    visited[[neighbour_row, neighbour_column]] = true;
-                    component.include(neighbour_row, neighbour_column, probability);
-                    pending.push((neighbour_row, neighbour_column));
-                }
-            }
-        }
-        component
-    }
-
-    /// The map marks a shrunk core of each text line, so the box is grown back
-    /// by the DB unclip distance: area * ratio / perimeter.
-    fn to_text_box(&self, component: &ConnectedComponent) -> Option<BoundingBox> {
-        if component.shortest_side() < DetectorInput::MIN_COMPONENT_SIDE
-            || component.mean_probability() < self.settings.box_threshold
+    /// The map marks a shrunk core of each text line, so the rectangle is grown back by the DB unclip
+    /// distance: area * ratio / perimeter.
+    fn to_text_quad(&self, outline: &[PixelPoint<i32>], probability_map: &ArrayView2<f32>) -> Option<TextQuad> {
+        let corners = min_area_rect(outline).map(|corner| Point::new(corner.x as f32, corner.y as f32));
+        let core = TextQuad::from_unordered(corners);
+        if Self::shorter_side(&core) < DetectorInput::MIN_SIDE
+            || self.mean_probability_inside(probability_map, &core) < self.settings.box_threshold
         {
             return None;
         }
-        let core = component.bounding_box();
+        let area = core.width() * core.height();
         let perimeter = 2.0 * (core.width() + core.height());
-        let unclip_distance = core.width() * core.height() * self.settings.unclip_ratio / perimeter;
-        Some(core.expanded(unclip_distance))
+        let grown = core.expanded(area * self.settings.unclip_ratio / perimeter);
+        (Self::shorter_side(&grown) >= DetectorInput::MIN_SIDE).then_some(grown)
+    }
+
+    fn shorter_side(quad: &TextQuad) -> f32 {
+        quad.width().min(quad.height())
+    }
+
+    /// Mean probability over the pixels covered by the rectangle.
+    fn mean_probability_inside(&self, probability_map: &ArrayView2<f32>, quad: &TextQuad) -> f32 {
+        let (rows, columns) = probability_map.dim();
+        let bounds = quad.bounding_box();
+        let left = (bounds.left.floor().max(0.0) as usize).min(columns - 1);
+        let top = (bounds.top.floor().max(0.0) as usize).min(rows - 1);
+        let right = (bounds.right.ceil() as usize).min(columns - 1);
+        let bottom = (bounds.bottom.ceil() as usize).min(rows - 1);
+
+        let outline: Vec<PixelPoint<i32>> = quad
+            .corners()
+            .iter()
+            .map(|corner| {
+                PixelPoint::new(
+                    corner.x.round() as i32 - left as i32,
+                    corner.y.round() as i32 - top as i32,
+                )
+            })
+            .collect();
+        let mut mask = GrayImage::new((right - left + 1) as u32, (bottom - top + 1) as u32);
+        draw_polygon_mut(&mut mask, &outline, FOREGROUND);
+
+        let (mut sum, mut count) = (0.0, 0);
+        for (column, row, pixel) in mask.enumerate_pixels() {
+            if pixel[0] > 0 {
+                sum += probability_map[[top + row as usize, left + column as usize]];
+                count += 1;
+            }
+        }
+        if count == 0 { 0.0 } else { sum / count as f32 }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ndarray::Array2;
+    use ndarray::{Array2, s};
 
     use super::*;
 
@@ -102,23 +109,44 @@ mod tests {
     }
 
     #[test]
-    fn finds_one_box_per_separate_region() {
+    fn finds_one_quad_per_separate_region() {
         let mut probability_map = Array2::<f32>::zeros((40, 100));
-        probability_map.slice_mut(ndarray::s![10..16, 5..40]).fill(0.9);
-        probability_map.slice_mut(ndarray::s![25..31, 50..90]).fill(0.9);
+        probability_map.slice_mut(s![10..16, 5..40]).fill(0.9);
+        probability_map.slice_mut(s![25..31, 50..90]).fill(0.9);
 
-        let boxes = extractor().extract(probability_map.view());
+        let quads = extractor().extract(probability_map.view());
 
-        assert_eq!(boxes.len(), 2);
-        assert!(boxes[0].left < 5.0 && boxes[0].right > 40.0);
-        assert!(boxes[1].top < 25.0 && boxes[1].bottom > 31.0);
+        assert_eq!(quads.len(), 2);
+        let first = quads
+            .iter()
+            .map(|quad| quad.bounding_box())
+            .find(|bounds| bounds.left < 10.0)
+            .unwrap();
+        assert!(first.left < 5.0 && first.right > 39.0 && first.top < 10.0 && first.bottom > 15.0);
+    }
+
+    #[test]
+    fn fits_a_tilted_region_with_a_tilted_rectangle() {
+        let mut probability_map = Array2::<f32>::zeros((120, 200));
+        for column in 20..170 {
+            let top = 20 + (column - 20) / 5; // descends 1 px per 5 px: about 11 degrees
+            for row in top..top + 8 {
+                probability_map[[row, column]] = 0.95;
+            }
+        }
+
+        let quads = extractor().extract(probability_map.view());
+
+        assert_eq!(quads.len(), 1);
+        let tilt_degrees = quads[0].tilt_radians().to_degrees();
+        assert!((tilt_degrees - 11.3).abs() < 2.0, "tilt was {tilt_degrees}");
     }
 
     #[test]
     fn ignores_tiny_and_low_confidence_regions() {
         let mut probability_map = Array2::<f32>::zeros((40, 100));
-        probability_map.slice_mut(ndarray::s![5..7, 5..40]).fill(0.9);
-        probability_map.slice_mut(ndarray::s![20..28, 5..40]).fill(0.4);
+        probability_map.slice_mut(s![5..7, 5..40]).fill(0.9);
+        probability_map.slice_mut(s![20..28, 5..40]).fill(0.4);
 
         assert!(extractor().extract(probability_map.view()).is_empty());
     }

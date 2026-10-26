@@ -3,7 +3,6 @@
 .DEFAULT_GOAL := help
 
 # Everything builds inside Docker through ./dev.sh: Rust does not have to be installed.
-MODEL_SIZE ?= small
 
 # rustfmt and clippy are added to the image as root; the files are handed back to the user afterwards.
 UID_GID   := $(shell id -u):$(shell id -g)
@@ -25,13 +24,13 @@ image: ## Build the server Docker image (dooai-engine)
 	docker build -t dooai-engine -f docker/server.Dockerfile .
 
 run: models ## Run the server on http://localhost:8080 (ENGINE_PORT=... to change)
-	ENGINE_MODELS_DIR=/project/models/$(MODEL_SIZE) ./dev.sh cargo run --release -p engine-server
+	ENGINE_MODELS_DIR=/project/models ./dev.sh cargo run --release -p engine-server
 
-models: ## Download the OCR models into models/<size> (MODEL_SIZE=tiny|small|medium)
-	./scripts/download-models.sh $(MODEL_SIZE)
+models: ## Download the OCR models into models/ (PACKS="cyrillic korean" for only some language packs)
+	./scripts/download-models.sh $(PACKS)
 
 test: ## Run the unit tests (the OCR test also needs `make models`)
-	ENGINE_MODELS_DIR=/project/models/$(MODEL_SIZE) ./dev.sh cargo test --release --workspace
+	ENGINE_MODELS_DIR=/project/models ./dev.sh cargo test --release --workspace
 
 fmt: ## Format the code
 	$(RUST_ROOT) "rustup component add rustfmt >/dev/null 2>&1 && cargo fmt --all && chown -R $(UID_GID) crates"

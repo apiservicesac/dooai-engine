@@ -11,7 +11,7 @@ use crate::ctc_decoder::CtcDecoder;
 use crate::onnx_model::OnnxModel;
 use crate::recognized_text::RecognizedText;
 use crate::settings::RecognizerInput;
-use crate::tensor_builder::TensorBuilder;
+use crate::tensor_builder::{ChannelOrder, TensorBuilder};
 
 /// Reads the text of one cropped line.
 pub struct TextRecognizer {
@@ -28,7 +28,11 @@ impl TextRecognizer {
     ) -> Result<Self, EngineError> {
         Ok(Self {
             model: OnnxModel::load(environment, model_path)?,
-            tensor_builder: TensorBuilder::new(RecognizerInput::MEAN, RecognizerInput::STANDARD_DEVIATION),
+            tensor_builder: TensorBuilder::new(
+                ChannelOrder::BlueGreenRed,
+                RecognizerInput::MEAN,
+                RecognizerInput::STANDARD_DEVIATION,
+            ),
             decoder: CtcDecoder::new(character_set),
         })
     }

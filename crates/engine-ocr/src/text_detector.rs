@@ -1,18 +1,18 @@
 use std::path::Path;
 
-use engine_core::{BoundingBox, EngineError};
+use engine_core::{EngineError, TextQuad};
 use image::RgbImage;
 use image::imageops::{self, FilterType};
-use ndarray::Ix4;
+use ndarray::{Axis, Ix4};
 use ort::environment::Environment;
 
 use crate::box_extractor::BoxExtractor;
 use crate::detector_settings::DetectorSettings;
 use crate::onnx_model::OnnxModel;
 use crate::settings::DetectorInput;
-use crate::tensor_builder::TensorBuilder;
+use crate::tensor_builder::{ChannelOrder, TensorBuilder};
 
-/// Finds where the text is: one box per text line, in the original image coordinates.
+/// Finds where the text is: one rotated rectangle per text line, in the original image coordinates.
 pub struct TextDetector {
     model: OnnxModel,
     tensor_builder: TensorBuilder,
@@ -23,12 +23,16 @@ impl TextDetector {
     pub fn load(environment: &Environment, model_path: &Path, settings: DetectorSettings) -> Result<Self, EngineError> {
         Ok(Self {
             model: OnnxModel::load(environment, model_path)?,
-            tensor_builder: TensorBuilder::new(DetectorInput::MEAN, DetectorInput::STANDARD_DEVIATION),
+            tensor_builder: TensorBuilder::new(
+                ChannelOrder::BlueGreenRed,
+                DetectorInput::MEAN,
+                DetectorInput::STANDARD_DEVIATION,
+            ),
             box_extractor: BoxExtractor::new(settings),
         })
     }
 
-    pub fn detect(&self, image: &RgbImage) -> Result<Vec<BoundingBox>, EngineError> {
+    pub fn detect(&self, image: &RgbImage) -> Result<Vec<TextQuad>, EngineError> {
         let (resized_width, resized_height) = Self::network_size(image.width(), image.height());
         let resized = imageops::resize(image, resized_width, resized_height, FilterType::Triangle);
 
@@ -36,8 +40,8 @@ impl TextDetector {
         let probability_maps = output
             .into_dimensionality::<Ix4>()
             .map_err(|error| EngineError::Inference(format!("unexpected detector output: {error}")))?;
-        let probability_map = probability_maps.index_axis(ndarray::Axis(0), 0);
-        let probability_map = probability_map.index_axis(ndarray::Axis(0), 0);
+        let image_maps = probability_maps.index_axis(Axis(0), 0);
+        let probability_map = image_maps.index_axis(Axis(0), 0);
 
         let horizontal_factor = image.width() as f32 / resized_width as f32;
         let vertical_factor = image.height() as f32 / resized_height as f32;
@@ -45,9 +49,8 @@ impl TextDetector {
             .box_extractor
             .extract(probability_map)
             .into_iter()
-            .map(|text_box| {
-                text_box
-                    .scaled(horizontal_factor, vertical_factor)
+            .map(|quad| {
+                quad.scaled(horizontal_factor, vertical_factor)
                     .clamped(image.width() as f32, image.height() as f32)
             })
             .collect())

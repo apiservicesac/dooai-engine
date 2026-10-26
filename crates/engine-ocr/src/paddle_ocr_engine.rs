@@ -1,69 +1,78 @@
 use std::path::Path;
 
-use engine_core::{BoundingBox, EngineError, OcrDocument, OcrEngine, OcrLine};
+use engine_core::{EngineError, OcrDocument, OcrEngine, OcrLine, OcrOptions};
 use image::RgbImage;
-use image::imageops;
 
-use crate::character_set::CharacterSet;
 use crate::detector_settings::DetectorSettings;
-use crate::model_files::ModelFiles;
+use crate::document_orientation::DocumentOrientation;
+use crate::line_cropper::LineCropper;
+use crate::line_orientation::LineOrientation;
+use crate::model_layout::ModelLayout;
+use crate::recognizer_set::RecognizerSet;
+use crate::rotation::Rotation;
 use crate::settings::Decoding;
 use crate::text_detector::TextDetector;
-use crate::text_recognizer::TextRecognizer;
 
-/// PP-OCR pipeline: detect the text lines, then recognize each one.
+const ENGINE_NAME: &str = "paddle-ocr";
+
+/// The PP-OCR pipeline: turn the page upright, find the text lines, straighten each one, read it.
 pub struct PaddleOcrEngine {
+    document_orientation: DocumentOrientation,
     detector: TextDetector,
-    recognizer: TextRecognizer,
+    line_orientation: LineOrientation,
+    recognizers: RecognizerSet,
 }
 
 impl PaddleOcrEngine {
     pub fn load(models_directory: &Path) -> Result<Self, EngineError> {
-        let files = ModelFiles::in_directory(models_directory)?;
-        let settings = DetectorSettings::from_config_file(&files.detector_config)?;
-        let character_set = CharacterSet::from_config_file(&files.recognizer_config)?;
+        let layout = ModelLayout::new(models_directory);
         let environment = ort::init()
             .build()
             .map_err(|error| EngineError::ModelLoad(error.to_string()))?;
+
+        let detector_files = layout.detector()?;
+        let settings = DetectorSettings::from_config_file(&detector_files.config)?;
         Ok(Self {
-            detector: TextDetector::load(&environment, &files.detector_model, settings)?,
-            recognizer: TextRecognizer::load(&environment, &files.recognizer_model, character_set)?,
+            document_orientation: DocumentOrientation::load(&environment, &layout.document_orientation()?.model)?,
+            detector: TextDetector::load(&environment, &detector_files.model, settings)?,
+            line_orientation: LineOrientation::load(&environment, &layout.line_orientation()?.model)?,
+            recognizers: RecognizerSet::load(&environment, &layout)?,
         })
     }
 
-    fn crop_line(image: &RgbImage, bounding_box: &BoundingBox) -> Option<RgbImage> {
-        let left = bounding_box.left.floor() as u32;
-        let top = bounding_box.top.floor() as u32;
-        let width = (bounding_box.right.ceil() as u32).saturating_sub(left);
-        let height = (bounding_box.bottom.ceil() as u32).saturating_sub(top);
-        if width == 0 || height == 0 {
-            return None;
+    /// Turns a cropped line around when it is upside down.
+    fn upright(&self, line: RgbImage) -> Result<RgbImage, EngineError> {
+        if self.line_orientation.is_upside_down(&line)? {
+            return Ok(Rotation::HALF_TURN.apply(line));
         }
-        Some(imageops::crop_imm(image, left, top, width, height).to_image())
+        Ok(line)
     }
 }
 
 impl OcrEngine for PaddleOcrEngine {
-    fn read(&self, encoded_image: &[u8]) -> Result<OcrDocument, EngineError> {
-        let image = image::load_from_memory(encoded_image)
+    fn read(&self, encoded_image: &[u8], options: &OcrOptions) -> Result<OcrDocument, EngineError> {
+        let decoded = image::load_from_memory(encoded_image)
             .map_err(|error| EngineError::InvalidImage(error.to_string()))?
             .to_rgb8();
 
-        let mut lines = Vec::new();
-        for bounding_box in self.detector.detect(&image)? {
-            let Some(line_image) = Self::crop_line(&image, &bounding_box) else {
+        let recognizer = self.recognizers.choose(options.language.as_deref())?;
+        let rotation = self.document_orientation.upright_rotation(&decoded)?;
+        let page = rotation.apply(decoded);
+
+        let mut recognized_lines = Vec::new();
+        for quad in self.detector.detect(&page)? {
+            let Some(crop) = LineCropper::crop(&page, &quad) else {
                 continue;
             };
-            let recognized = self.recognizer.recognize(&line_image)?;
-            if recognized.text.is_empty() || recognized.confidence < Decoding::MIN_LINE_CONFIDENCE {
-                continue;
+            let recognized = recognizer.recognize(&self.upright(crop)?)?;
+            if !recognized.text.is_empty() && recognized.confidence >= Decoding::MIN_LINE_CONFIDENCE {
+                recognized_lines.push(OcrLine::new(recognized.text, recognized.confidence, quad));
             }
-            lines.push(OcrLine {
-                text: recognized.text,
-                confidence: recognized.confidence,
-                bounding_box,
-            });
         }
-        Ok(OcrDocument::from_lines(lines))
+        Ok(OcrDocument::from_lines(
+            recognized_lines,
+            format!("{ENGINE_NAME}/{}", recognizer.name),
+            rotation.clockwise_degrees(),
+        ))
     }
 }

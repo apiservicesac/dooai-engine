@@ -1,48 +1,104 @@
-//! Runs the real PP-OCR models; skipped unless ENGINE_MODELS_DIR points at `scripts/download-models.sh` output.
+//! Runs the real models; skipped unless ENGINE_MODELS_DIR points at `scripts/download-models.sh` output.
 
 use std::path::PathBuf;
 
-use engine_core::OcrEngine;
+use engine_core::{EngineError, OcrDocument, OcrEngine, OcrOptions};
 use engine_ocr::PaddleOcrEngine;
 
 const MODELS_DIRECTORY_VARIABLE: &str = "ENGINE_MODELS_DIR";
-const INVOICE_IMAGE: &[u8] = include_bytes!("fixtures/invoice.png");
+const INVOICE: &[u8] = include_bytes!("fixtures/invoice.png");
+const INVOICE_TILTED: &[u8] = include_bytes!("fixtures/invoice_tilted.png");
+const INVOICE_UPSIDE_DOWN: &[u8] = include_bytes!("fixtures/invoice_upside_down.png");
+const INVOICE_RUSSIAN: &[u8] = include_bytes!("fixtures/invoice_ru.png");
 
-struct OcrScenario;
+struct OcrScenario {
+    engine: PaddleOcrEngine,
+}
 
 impl OcrScenario {
-    fn models_directory() -> Option<PathBuf> {
+    fn load() -> Option<Self> {
         let directory = PathBuf::from(std::env::var_os(MODELS_DIRECTORY_VARIABLE)?);
-        directory.is_dir().then_some(directory)
+        let engine = PaddleOcrEngine::load(&directory).expect("models load");
+        Some(Self { engine })
     }
+
+    fn read(&self, image: &[u8], language: Option<&str>) -> Result<OcrDocument, EngineError> {
+        let options = OcrOptions {
+            language: language.map(str::to_string),
+        };
+        self.engine.read(image, &options)
+    }
+
+    fn assert_contains(document: &OcrDocument, expected: &[&str]) {
+        for text in expected {
+            assert!(document.text.contains(text), "missing {text:?} in:\n{}", document.text);
+        }
+    }
+}
+
+macro_rules! scenario {
+    () => {
+        match OcrScenario::load() {
+            Some(scenario) => scenario,
+            None => {
+                eprintln!("skipped: set {MODELS_DIRECTORY_VARIABLE} to run the model tests");
+                return;
+            }
+        }
+    };
 }
 
 #[test]
 fn reads_the_text_of_an_invoice() {
-    let Some(models_directory) = OcrScenario::models_directory() else {
-        eprintln!("skipped: set {MODELS_DIRECTORY_VARIABLE} to run the model test");
-        return;
-    };
-    let engine = PaddleOcrEngine::load(&models_directory).expect("models load");
+    let scenario = scenario!();
 
-    let document = engine.read(INVOICE_IMAGE).expect("image is read");
+    let document = scenario.read(INVOICE, None).unwrap();
 
-    println!("{}\nconfidence {:.3}", document.text, document.confidence);
-    for expected in ["2026-0042", "Northwind", "2026-10-25", "118.00"] {
-        assert!(
-            document.text.contains(expected),
-            "missing {expected:?} in:\n{}",
-            document.text
-        );
-    }
+    OcrScenario::assert_contains(&document, &["2026-0042", "Northwind", "2026-10-25", "118.00"]);
+    assert_eq!(document.rotation_degrees, 0);
+    assert_eq!(document.text.lines().last(), Some("Total\tUSD 118.00"));
 }
 
 #[test]
-fn rejects_bytes_that_are_not_an_image() {
-    let Some(models_directory) = OcrScenario::models_directory() else {
-        return;
-    };
-    let engine = PaddleOcrEngine::load(&models_directory).expect("models load");
+fn reads_a_tilted_photo() {
+    let scenario = scenario!();
 
-    assert!(engine.read(b"not an image").is_err());
+    let document = scenario.read(INVOICE_TILTED, None).unwrap();
+
+    OcrScenario::assert_contains(&document, &["2026-0042", "Northwind", "118.00"]);
+    assert_eq!(document.text.lines().last(), Some("Total\tUSD 118.00"));
+}
+
+#[test]
+fn turns_an_upside_down_page_upright() {
+    let scenario = scenario!();
+
+    let document = scenario.read(INVOICE_UPSIDE_DOWN, None).unwrap();
+
+    OcrScenario::assert_contains(&document, &["2026-0042", "118.00"]);
+    assert_eq!(document.rotation_degrees, 180);
+}
+
+#[test]
+fn reads_russian_with_the_cyrillic_recognizer() {
+    let scenario = scenario!();
+
+    let document = scenario.read(INVOICE_RUSSIAN, Some("ru")).unwrap();
+
+    OcrScenario::assert_contains(&document, &["ФАКТУРА", "Поставщик", "1 500,00"]);
+    assert_eq!(document.engine, "paddle-ocr/cyrillic");
+}
+
+#[test]
+fn rejects_unknown_languages_and_bad_images() {
+    let scenario = scenario!();
+
+    assert!(matches!(
+        scenario.read(INVOICE, Some("xx")),
+        Err(EngineError::UnsupportedLanguage(_))
+    ));
+    assert!(matches!(
+        scenario.read(b"not an image", None),
+        Err(EngineError::InvalidImage(_))
+    ));
 }
