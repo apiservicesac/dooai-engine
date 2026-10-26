@@ -25,14 +25,25 @@ impl DocumentOrientation {
         })
     }
 
-    pub fn upright_rotation(&self, image: &RgbImage) -> Result<Rotation, EngineError> {
-        let classification = self.classifier.classify(image)?;
-        let tilt = DocumentTilts::CLASSES
-            .get(classification.class_index)
-            .copied()
-            .ok_or_else(|| {
-                EngineError::Inference(format!("unknown orientation class {}", classification.class_index))
-            })?;
-        Ok(Rotation::correcting(tilt))
+    /// The turns that may make the page upright: one when the classifier is sure, the two most likely when it is not.
+    /// The caller reads each candidate and keeps the best reading.
+    pub fn candidate_rotations(&self, image: &RgbImage) -> Result<Vec<Rotation>, EngineError> {
+        let ranking = self.classifier.rank(image)?;
+        let confident = match ranking.as_slice() {
+            [best, runner_up, ..] => best.score - runner_up.score >= DocumentTilts::MIN_CONFIDENT_MARGIN,
+            _ => true,
+        };
+        let proposed = if confident { &ranking[..1] } else { &ranking[..2] };
+        proposed
+            .iter()
+            .map(|classification| {
+                DocumentTilts::CLASSES
+                    .get(classification.class_index)
+                    .map(|&tilt| Rotation::correcting(tilt))
+                    .ok_or_else(|| {
+                        EngineError::Inference(format!("unknown orientation class {}", classification.class_index))
+                    })
+            })
+            .collect()
     }
 }

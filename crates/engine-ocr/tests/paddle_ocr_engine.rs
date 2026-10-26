@@ -77,6 +77,13 @@ fn turns_an_upside_down_page_upright() {
 
     OcrScenario::assert_contains(&document, &["2026-0042", "118.00"]);
     assert_eq!(document.rotation_degrees, 180);
+    // The title is at the top of the page, so on the upside-down photo it sits in the bottom half.
+    let title = &document.lines[0];
+    assert!(
+        title.bounding_box.top > 200.0,
+        "title top is {}",
+        title.bounding_box.top
+    );
 }
 
 #[test]

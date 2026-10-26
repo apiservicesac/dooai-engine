@@ -100,6 +100,13 @@ impl TextQuad {
         }
     }
 
+    /// Moves every corner through `mapping`, keeping their order (which follows the reading direction of the text).
+    pub fn mapped(&self, mapping: impl Fn(Point) -> Point) -> Self {
+        Self {
+            corners: self.corners.map(mapping),
+        }
+    }
+
     pub fn scaled(&self, horizontal_factor: f32, vertical_factor: f32) -> Self {
         Self {
             corners: self

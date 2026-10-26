@@ -1,8 +1,8 @@
 use serde::Serialize;
 
-use crate::OcrLine;
 use crate::reading_order::ReadingOrder;
 use crate::settings::DocumentLayout;
+use crate::{OcrLine, Point};
 
 /// Result of reading one image.
 #[derive(Debug, Clone, Serialize)]
@@ -13,7 +13,7 @@ pub struct OcrDocument {
     pub confidence: Option<f32>,
     /// Lines with their geometry; empty when the engine gives none.
     pub lines: Vec<OcrLine>,
-    /// Clockwise rotation applied to the image to make the text upright. Line geometry refers to that rotated image.
+    /// Clockwise rotation applied to the image to make the text upright. Line geometry still refers to the original image.
     pub rotation_degrees: u16,
     /// What read the image, e.g. `paddle-ocr/cyrillic`.
     pub engine: String,
@@ -49,6 +49,25 @@ impl OcrDocument {
             rotation_degrees: 0,
             engine: engine.into(),
         }
+    }
+
+    /// Moves the geometry of every line through `mapping`, e.g. from the upright page back to the original photo.
+    pub fn restore_geometry(mut self, mapping: impl Fn(Point) -> Point) -> Self {
+        self.lines = self
+            .lines
+            .into_iter()
+            .map(|line| OcrLine::new(line.text, line.confidence, line.polygon.mapped(&mapping)))
+            .collect();
+        self
+    }
+
+    /// How much confident text was read: the sum of each line's confidence times its characters.
+    /// A page read in the wrong orientation yields little of it, so it tells readings apart.
+    pub fn reading_evidence(&self) -> f32 {
+        self.lines
+            .iter()
+            .map(|line| line.confidence * line.text.chars().count() as f32)
+            .sum()
     }
 
     fn average_confidence(lines: &[OcrLine]) -> Option<f32> {

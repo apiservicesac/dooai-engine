@@ -42,7 +42,8 @@ language. A language whose recognizer is not installed answers `400` with the li
 
 `text` is in reading order: one line per visual row, and the pieces of a row (table columns) separated by a tab.
 `polygon` has the four corners of the line, clockwise from the top-left, and keeps the tilt of the text.
-`rotation_degrees` is the clockwise turn applied to make the page upright; line geometry refers to the turned page.
+`rotation_degrees` is the clockwise turn applied to make the page upright. Geometry always refers to the original image,
+so it can be drawn straight over the photo; the four corners follow the reading direction of the text.
 An image that cannot be decoded answers `422 {"error": "..."}`.
 
 Configuration, all optional:
@@ -84,15 +85,19 @@ packs, installed only if you need them (`make models PACKS="cyrillic korean"`).
 
 ## How a page is read
 
-The pipeline follows the PP-OCR design: a classifier turns the page upright (0/90/180/270), a detector finds each text
-line as a rotated rectangle, each line is cut out with a perspective transform and turned around if upside down, and the
-recognizer for the requested alphabet reads it. Rows are put in reading order in the page's own frame, so tilted photos
-read like straight pages.
+The pipeline follows the PP-OCR design, with a few additions of its own:
+
+1. A classifier proposes how to turn the page upright (0/90/180/270). When it is unsure (the two best classes are
+   close), both turns are read and the one that yields more confident text wins.
+2. A detector finds each text line as a rotated rectangle; each line is cut out with a perspective transform and
+   turned around if it is upside down. If most lines were upside down, the page is read again turned a half turn more.
+3. The recognizer for the requested alphabet reads each line.
+4. Rows are put in reading order in the page's own frame, so tilted photos read like straight pages, and the geometry is
+   mapped back onto the original image.
 
 ## Known limits
 
 - Images only: PDFs are not read yet.
-- The page orientation classifier can turn a sparse receipt upside down when it is unsure.
 - Without `language`, non-Latin alphabets other than Chinese and Japanese are misread: pass the language.
 - Pages tilted around 45 degrees are misjudged by the orientation classifier.
 - Lines are recognized one by one, and each model session serves one request at a time.

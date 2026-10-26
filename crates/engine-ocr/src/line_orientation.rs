@@ -27,8 +27,6 @@ impl LineOrientation {
     }
 
     pub fn is_upside_down(&self, line: &RgbImage) -> Result<bool, EngineError> {
-        let classification = self.classifier.classify(line)?;
-        Ok(classification.class_index == UPSIDE_DOWN_CLASS
-            && classification.score >= ClassifierSettings::MIN_UPSIDE_DOWN_SCORE)
+        Ok(self.classifier.classify(line)?.class_index == UPSIDE_DOWN_CLASS)
     }
 }

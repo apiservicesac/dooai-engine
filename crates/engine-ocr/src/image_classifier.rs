@@ -38,18 +38,26 @@ impl ImageClassifier {
     }
 
     pub fn classify(&self, image: &RgbImage) -> Result<Classification, EngineError> {
+        self.rank(image)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| EngineError::Inference("the classifier returned no classes".to_string()))
+    }
+
+    /// Every class, most likely first.
+    pub fn rank(&self, image: &RgbImage) -> Result<Vec<Classification>, EngineError> {
         let prepared = self.input.prepare(image);
         let output = self.model.run(self.tensor_builder.build(&prepared))?;
         let probabilities = output
             .into_dimensionality::<Ix2>()
             .map_err(|error| EngineError::Inference(format!("unexpected classifier output: {error}")))?;
-        probabilities
+        let mut classes: Vec<Classification> = probabilities
             .row(0)
             .iter()
-            .copied()
             .enumerate()
-            .max_by(|first, second| first.1.total_cmp(&second.1))
-            .map(|(class_index, score)| Classification { class_index, score })
-            .ok_or_else(|| EngineError::Inference("the classifier returned no classes".to_string()))
+            .map(|(class_index, &score)| Classification { class_index, score })
+            .collect();
+        classes.sort_by(|first, second| second.score.total_cmp(&first.score));
+        Ok(classes)
     }
 }

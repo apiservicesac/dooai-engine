@@ -70,8 +70,6 @@ impl ClassifierSettings {
     /// Text line classifier: every line is resized to this fixed size.
     pub const LINE_WIDTH: u32 = 160;
     pub const LINE_HEIGHT: u32 = 80;
-    /// A line is turned around only when the classifier is at least this sure it is upside down.
-    pub const MIN_UPSIDE_DOWN_SCORE: f32 = 0.9;
 }
 
 /// Classes of the document orientation classifier: how many degrees clockwise the page content is turned.
@@ -79,6 +77,16 @@ pub struct DocumentTilts;
 
 impl DocumentTilts {
     pub const CLASSES: [u16; 4] = [0, 90, 180, 270];
+    /// When the best class beats the runner-up by less than this, the classifier is unsure and both are tried.
+    pub const MIN_CONFIDENT_MARGIN: f32 = 0.3;
+}
+
+/// How the lines vote on whether the whole page is upside down.
+pub struct PageVote;
+
+impl PageVote {
+    /// With fewer lines than this the vote means nothing.
+    pub const MIN_LINES: usize = 3;
 }
 
 /// How a detected line is cut out of the image.
